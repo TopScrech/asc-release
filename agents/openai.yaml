@@ -1,0 +1,7 @@
+interface:
+  display_name: "ASC Release"
+  short_description: "Prepare ASC versions and submit builds"
+  default_prompt: "Use $asc-release to prepare a new app version with my changelog, then wait for my build number before submitting"
+
+policy:
+  allow_implicit_invocation: true
