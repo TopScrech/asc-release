@@ -20,6 +20,8 @@ Use this skill to prepare a new app version with `asc`, pause for the build numb
 - Preview remote writes with `--dry-run` when supported
 - Some quick-edit commands do not support `--dry-run`; validate after targeted writes when no dry run is available
 - Use `--output json` for parsing and `--output table` for user-facing checks
+- Use structured parsers such as `jq` for JSON output; do not parse table output
+- Keep user-facing summaries short: app, version, platform, IDs, state, validation, blockers, and next action
 
 ## Inputs to resolve
 
@@ -41,17 +43,20 @@ If the user has not supplied a changelog, ask for it before creating or updating
    - Use all platforms by default
    - Exclude only platforms the user names
    - Resolve platform-specific current released versions and target new versions
+   - If App Store Connect has no version history for a platform, report that and continue only with resolved App Store Connect platforms
    - Common discovery commands:
 
 ```bash
 asc apps list --bundle-id "BUNDLE_ID" --output json --pretty
 asc versions list --app "APP_ID" --output table --paginate
 asc versions list --app "APP_ID" --output json --pretty --paginate
+rg "MARKETING_VERSION|PRODUCT_BUNDLE_IDENTIFIER" "*.xcodeproj/project.pbxproj"
 ```
 
 2. Open the new version for every included platform
    - Discover the current `asc` version-create command with `asc versions --help` and related subcommand help
    - Create the new app-store version only when it does not already exist
+   - If the target version already exists, reuse its `VERSION_ID` and continue with localization updates
    - Store every resolved target `VERSION_ID`
 
 3. Resolve localizations for every included platform
@@ -104,8 +109,21 @@ asc metadata validate --dir "$TMP_DIR" --output table
 
 7. Stop
    - Report the prepared platforms, version IDs, localizations, and validation state
+   - If the user has not provided a build number yet, also report the latest Xcode Cloud build number and commit message
    - Ask the user for the build number
    - End the turn without attaching a build or submitting for review
+
+   Discover the latest Xcode Cloud build with:
+
+```bash
+asc xcode-cloud --help
+asc xcode-cloud workflows --help
+asc xcode-cloud build-runs --help
+asc xcode-cloud workflows list --app "APP_ID" --output json --pretty
+asc xcode-cloud build-runs list --workflow-id "WORKFLOW_ID" --sort "-number" --limit 1 --output json --pretty
+```
+
+   Report `attributes.number`, `attributes.executionProgress`, `attributes.sourceCommit.commitSha`, and `attributes.sourceCommit.message` for the latest run
 
 ## Phase 2: Attach build and submit
 
@@ -116,6 +134,13 @@ Use this phase only when the user has provided the build number after Phase 1
    - Resolve the user-provided build number to a unique build ID before submitting
    - Confirm each build is processed and eligible for App Store release
    - If more than one build matches a platform, disambiguate before submitting
+   - Discover current build command syntax before relying on it:
+
+```bash
+asc builds --help
+asc builds list --help
+```
+
    - Inspect the matching build with:
 
 ```bash
@@ -125,9 +150,13 @@ asc builds list --app "APP_ID" --version "NEW_VERSION" --build-number "BUILD_NUM
 
 2. Select the build for release
    - Attach the resolved build to each target version
+   - Run `asc review doctor` before submitting to check for blockers
    - Prefer `asc review submit` when it covers the flow:
 
 ```bash
+asc review --help
+asc review submit --help
+asc review doctor --app "APP_ID" --output table
 asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --platform PLATFORM --dry-run --output table
 asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --platform PLATFORM --confirm --output table
 ```
@@ -144,6 +173,7 @@ asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --
 asc versions list --app "APP_ID" --version "NEW_VERSION" --platform PLATFORM --output table
 asc versions view --version-id "VERSION_ID" --include-build --include-submission --output table
 asc review submissions-get --id "SUBMISSION_ID" --output table
+asc review status --app "APP_ID" --output table
 ```
 
 ## Fallbacks
