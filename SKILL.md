@@ -18,6 +18,7 @@ Use this skill to prepare a new app version with `asc`, pause for the build numb
 - Do not select a build or submit for review before the user provides the build number
 - Prefer explicit app, version, platform, locale, version ID, and build selectors
 - Preview remote writes with `--dry-run` when supported
+- Some quick-edit commands do not support `--dry-run`; validate after targeted writes when no dry run is available
 - Use `--output json` for parsing and `--output table` for user-facing checks
 
 ## Inputs to resolve
@@ -40,6 +41,13 @@ If the user has not supplied a changelog, ask for it before creating or updating
    - Use all platforms by default
    - Exclude only platforms the user names
    - Resolve platform-specific current released versions and target new versions
+   - Common discovery commands:
+
+```bash
+asc apps list --bundle-id "BUNDLE_ID" --output json --pretty
+asc versions list --app "APP_ID" --output table --paginate
+asc versions list --app "APP_ID" --output json --pretty --paginate
+```
 
 2. Open the new version for every included platform
    - Discover the current `asc` version-create command with `asc versions --help` and related subcommand help
@@ -50,6 +58,12 @@ If the user has not supplied a changelog, ask for it before creating or updating
    - Use all existing localizations by default
    - Narrow localizations only when the user asks
    - Create missing target-version localizations when needed
+   - Inspect source and target localizations before copying fields:
+
+```bash
+asc localizations list --version "VERSION_ID" --output json --pretty
+asc localizations list --version "VERSION_ID" --output table
+```
 
 4. Copy promotional text from the currently released version
    - For each included platform and locale, read the released version localization
@@ -71,7 +85,21 @@ asc metadata push --app "APP_ID" --version "NEW_VERSION" --platform PLATFORM --d
 asc metadata push --app "APP_ID" --version "NEW_VERSION" --platform PLATFORM --dir "./metadata"
 ```
 
-   - For small targeted edits, use the current quick-edit command discovered with `asc apps info edit --help`, `asc versions --help`, or related help
+   - For small targeted edits, use the current quick-edit command discovered with `asc localizations update --help`, `asc versions update --help`, or related help
+   - Version-localization quick edits commonly look like this:
+
+```bash
+asc localizations update --version "VERSION_ID" --locale "LOCALE" --promotional-text "PROMOTIONAL_TEXT" --whats-new "CHANGELOG_TEXT" --output table
+```
+
+   - After quick edits, pull remote metadata to a temporary directory and validate the current App Store Connect state:
+
+```bash
+TMP_DIR="$(mktemp -d)"
+asc metadata pull --app "APP_ID" --version "NEW_VERSION" --platform PLATFORM --dir "$TMP_DIR" --force --output table
+asc metadata validate --dir "$TMP_DIR" --output table
+```
+
    - Always validate after editing and before submission
 
 7. Stop
@@ -85,16 +113,23 @@ Use this phase only when the user has provided the build number after Phase 1
 
 1. Resolve the build for each relevant platform
    - Match the user-provided build number to the included platforms
+   - Resolve the user-provided build number to a unique build ID before submitting
    - Confirm each build is processed and eligible for App Store release
    - If more than one build matches a platform, disambiguate before submitting
+   - Inspect the matching build with:
+
+```bash
+asc builds list --app "APP_ID" --version "NEW_VERSION" --build-number "BUILD_NUMBER" --platform PLATFORM --output json --pretty --paginate
+asc builds list --app "APP_ID" --version "NEW_VERSION" --build-number "BUILD_NUMBER" --platform PLATFORM --output table --paginate
+```
 
 2. Select the build for release
    - Attach the resolved build to each target version
    - Prefer `asc review submit` when it covers the flow:
 
 ```bash
-asc review submit --app "APP_ID" --version "NEW_VERSION" --build "BUILD_NUMBER_OR_ID" --dry-run --output table
-asc review submit --app "APP_ID" --version "NEW_VERSION" --build "BUILD_NUMBER_OR_ID" --confirm
+asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --platform PLATFORM --dry-run --output table
+asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --platform PLATFORM --confirm --output table
 ```
 
    - Use `--version-id "VERSION_ID"` instead of `--version` when that is more deterministic
@@ -103,6 +138,13 @@ asc review submit --app "APP_ID" --version "NEW_VERSION" --build "BUILD_NUMBER_O
    - Submit every included platform version after the dry run is clean
    - Capture submission IDs and review status
    - Report submitted platforms, selected builds, and submission IDs
+   - Verify the final state with:
+
+```bash
+asc versions list --app "APP_ID" --version "NEW_VERSION" --platform PLATFORM --output table
+asc versions view --version-id "VERSION_ID" --include-build --include-submission --output table
+asc review submissions-get --id "SUBMISSION_ID" --output table
+```
 
 ## Fallbacks
 
