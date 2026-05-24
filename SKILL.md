@@ -21,7 +21,8 @@ Use this skill to prepare a new app version with `asc`, pause for the build numb
 - Some quick-edit commands do not support `--dry-run`; validate after targeted writes when no dry run is available
 - Use `--output json` for parsing and `--output table` for user-facing checks
 - Use structured parsers such as `jq` for JSON output; do not parse table output
-- Keep user-facing summaries short: app, version, platform, IDs, state, validation, blockers, and next action
+- Keep user-facing summaries short: app, version, platform, state, validation, blockers, and next action
+- Do not include app IDs or version IDs in normal user-facing summaries unless they are needed to disambiguate or debug a failure
 
 ## Inputs to resolve
 
@@ -74,6 +75,7 @@ asc localizations list --version "VERSION_ID" --output table
    - For each included platform and locale, read the released version localization
    - Copy only the promotional text from the released version to the target new version
    - Do not copy unrelated version metadata unless needed by `asc` to preserve existing values
+   - Track the promotional text copied for each locale so it can be reported in the Phase 1 summary
 
 5. Add changelog text to the new version
    - Set `whatsNew` or the current `asc` equivalent on every included target-version localization
@@ -108,7 +110,9 @@ asc metadata validate --dir "$TMP_DIR" --output table
    - Always validate after editing and before submission
 
 7. Stop
-   - Report the prepared platforms, version IDs, localizations, and validation state
+   - Report the prepared app, version, platforms, localizations, validation state, and next action
+   - Include a compact table of promotional text by locale for each prepared platform
+   - Do not include app IDs or version IDs in the summary unless there is an ambiguity or blocker that requires them
    - If the user has not provided a build number yet, also report the latest Xcode Cloud build number and commit message
    - Ask the user for the build number
    - End the turn without attaching a build or submitting for review
@@ -128,6 +132,7 @@ asc xcode-cloud build-runs list --workflow-id "WORKFLOW_ID" --sort "-number" --l
 ## Phase 2: Attach build and submit
 
 Use this phase only when the user has provided the build number after Phase 1
+If the previous Phase 1 summary reported a latest successful Xcode Cloud build, treat a follow-up such as "go on", "continue", or "use latest" as permission to use that build number
 
 1. Resolve the build for each relevant platform
    - Match the user-provided build number to the included platforms
