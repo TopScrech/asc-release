@@ -22,6 +22,7 @@ Use this skill to prepare a new app version with `asc`, pause for the build numb
 - Use `--output json` for parsing and `--output table` for user-facing checks
 - Use structured parsers such as `jq` for JSON output; do not parse table output
 - Keep user-facing summaries short: app, version, platform, IDs, state, validation, blockers, and next action
+- Do not show commit SHA or submission ID values in the user-facing overview
 
 ## Inputs to resolve
 
@@ -123,7 +124,7 @@ asc xcode-cloud workflows list --app "APP_ID" --output json --pretty
 asc xcode-cloud build-runs list --workflow-id "WORKFLOW_ID" --sort "-number" --limit 1 --output json --pretty
 ```
 
-   Report `attributes.number`, `attributes.executionProgress`, `attributes.sourceCommit.commitSha`, and `attributes.sourceCommit.message` for the latest run
+   Report `attributes.number`, `attributes.executionProgress`, and `attributes.sourceCommit.message` for the latest run
 
 ## Phase 2: Attach build and submit
 
@@ -165,8 +166,8 @@ asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --
 
 3. Submit for App Review
    - Submit every included platform version after the dry run is clean
-   - Capture submission IDs and review status
-   - Report submitted platforms, selected builds, and submission IDs
+   - Capture submission IDs internally and review status
+   - Report submitted platforms, selected builds, and review status without showing submission IDs in the overview
    - Verify the final state with:
 
 ```bash
