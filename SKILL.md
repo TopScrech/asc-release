@@ -16,6 +16,7 @@ Use this skill to prepare a new app version with `asc`, pause for the build numb
 - Use the same provided changelog text across every included localization by default
 - Stop after metadata updates and wait for the user to provide a build number in a later prompt
 - Do not select a build or submit for review before the user provides the build number
+- Submit independent releases concurrently across included apps and platforms so one release's processing does not delay another
 - Prefer explicit app, version, platform, locale, version ID, and build selectors
 - Preview remote writes with `--dry-run` when supported
 - Some quick-edit commands do not support `--dry-run`; validate after targeted writes when no dry run is available
@@ -135,6 +136,11 @@ asc xcode-cloud build-runs list --workflow-id "WORKFLOW_ID" --sort "-number" --l
 Use this phase only when the user has provided the build number after Phase 1
 If the previous Phase 1 summary reported a latest successful Xcode Cloud build, treat a follow-up such as "go on", "continue", or "use latest" as permission to use that build number
 
+Run the following steps as an independent sequence for each app/platform/version release
+Keep build resolution, attachment, validation, and submission ordered within each release, but run independent release sequences concurrently
+Start each ready release's submission without waiting for other releases to finish processing, become ready, or complete submission
+Serialize operations that modify the same version or shared review submission to avoid conflicting writes
+
 1. Resolve the build for each relevant platform
    - Match the user-provided build number to the included platforms
    - Resolve the user-provided build number to a unique build ID before submitting
@@ -164,15 +170,24 @@ asc review --help
 asc review submit --help
 asc review doctor --app "APP_ID" --output table
 asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --platform PLATFORM --dry-run --output table
-asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --platform PLATFORM --confirm --output table
 ```
 
    - Use `--version-id "VERSION_ID"` instead of `--version` when that is more deterministic
 
 3. Submit for App Review
-   - Submit every included platform version after the dry run is clean
-   - Capture submission IDs internally and review status
-   - Report submitted platforms, selected builds, and review status without showing submission IDs in the overview
+   - Submit every included platform version after its own dry run is clean, with independent submission commands running concurrently
+   - Use concurrent tool calls or background CLI processes with separate output per release; do not run a foreground submit-and-wait loop over releases
+   - Run this command once per ready release:
+
+```bash
+asc review submit --app "APP_ID" --version-id "VERSION_ID" --build "BUILD_ID" --platform PLATFORM --confirm --output table
+```
+
+   - Collect every command's result and capture submission IDs internally and review status
+   - A blocked or failed release must not cancel or delay other independent releases
+   - If a command times out or returns an ambiguous result, check that release's remote submission state before retrying to avoid duplicate submissions
+   - Report each release's submitted, pending, or failed state with its platform and selected build, without showing submission IDs in the overview
+   - Verify submitted releases independently without waiting for App Review to finish
    - Verify the final state with:
 
 ```bash
