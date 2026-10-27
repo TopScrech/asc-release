@@ -1,7 +1,7 @@
 interface:
   display_name: "ASC Release"
-  short_description: "Prepare ASC versions and submit builds"
-  default_prompt: "Use $asc-release to prepare a new app version with my changelog, then wait for my build number before submitting"
+  short_description: "Create GitHub releases and submit ASC builds"
+  default_prompt: "Use $asc-release with my version and changelog to create a GitHub release, prepare App Store metadata, and keep polling builds every minute until ready, then confirm the build number and submit"
 
 policy:
   allow_implicit_invocation: true
